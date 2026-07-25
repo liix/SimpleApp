@@ -38,7 +38,7 @@ pipeline {
                         }
                     }
                 }
-                
+
                 stage('Code Style Check') {
                     steps {
                         echo '=== Checking Code Formatting ==='
@@ -65,7 +65,19 @@ pipeline {
         stage('Check application') {
             steps {
                 echo '=== Stage 5: Check ==='
-                sh """curl http://localhost:${port}"""
+                sh """
+                    for i in \$(seq 1 30); do
+                    if curl -fsS "http://localhost:${port}" >/dev/null; then
+                        echo "App is up"
+                        curl -fsS "http://localhost:${port}"
+                        exit 0
+                    fi
+                    echo "Waiting... (\$i)"
+                    sleep 2
+                    done
+                    echo "App did not become ready in time"
+                    exit 1
+                """
             }
         }
         
