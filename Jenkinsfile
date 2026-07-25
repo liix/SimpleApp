@@ -29,12 +29,25 @@ pipeline {
                     steps {
                         echo '=== Stage 3: Tests ==='
                         catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
-                            sh 'dotnet test --no-build -c Release --logger "trx;LogFileName=test_results.trx"'
+                            sh '''
+                                dotnet test --no-build -c Release \
+                                --logger "trx;LogFileName=test_results.trx" \
+                                --collect:"XPlat Code Coverage" \
+                                --results-directory ./TestResults \
+                                -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura
+                            '''
                         }
                     }
                     post {
                         always {
                             mstest testResultsFile: '**/test_results.trx', keepLongStdio: true
+
+                            recordCoverage(
+                                tools: [[parser: 'COBERTURA', pattern: '**/coverage.cobertura.xml']],
+                                id: 'cobertura',
+                                name: 'Code Coverage',
+                                sourceCodeRetention: 'LAST_BUILD'
+                            )
                         }
                     }
                 }
