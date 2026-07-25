@@ -23,11 +23,27 @@ pipeline {
             }
         }
 
-        stage('Test') {
-            steps {
-                echo '=== Stage 3: Tests ==='
-                catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
-                    sh 'dotnet test --no-build -c Release'
+        stage ('Quality and Testing'){
+            parallel {
+                stage('Test') {
+                    steps {
+                        echo '=== Stage 3: Tests ==='
+                        catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
+                            sh 'dotnet test --no-build -c Release --logger "trx;LogFileName=test_results.trx"'
+                        }
+                    }
+                    post {
+                        always {
+                            mstest testResultsFile: '**/test_results.trx', keepLongStdio: true
+                        }
+                    }
+                }
+                
+                stage('Code Style Check') {
+                    steps {
+                        echo '=== Checking Code Formatting ==='
+                        sh 'dotnet format --verify-no-changes'
+                    }
                 }
             }
         }
@@ -35,7 +51,6 @@ pipeline {
         stage('Deploy (Publish)') {
             steps {
                 echo '=== Stage 4: Deploy ==='
-                writeFile file: 'Dockerfile', text: params.dockerfile
                 sh """ 
                     docker build -t my-web-api .
                     docker stop my-web-api || true
