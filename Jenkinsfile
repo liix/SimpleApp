@@ -1,5 +1,7 @@
 pipeline {
-    agent any
+    agent {
+        label 'Linux'
+    }
 
     parameters {
         string(name: 'REPORT_USER', defaultValue: 'vasia')
