@@ -1,5 +1,7 @@
 pipeline {
-    agent any
+    agent {
+        label 'Linux'
+    }
 
     parameters {
         string(name: 'REPORT_USER', defaultValue: 'vasia')
@@ -25,7 +27,7 @@ pipeline {
 
         stage ('Quality and Testing'){
             parallel {
-                stage('Test') {
+                stage('Tests') {
                     steps {
                         echo '=== Stage 3: Tests ==='
                         catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
