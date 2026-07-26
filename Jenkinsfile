@@ -23,11 +23,40 @@ pipeline {
             }
         }
 
-        stage('Test') {
-            steps {
-                echo '=== Stage 3: Tests ==='
-                catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
-                    sh 'dotnet test --no-build -c Release'
+        stage ('Quality and Testing'){
+            parallel {
+                stage('Tests') {
+                    steps {
+                        echo '=== Stage 3: Tests ==='
+                        catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
+                            sh '''
+                                dotnet test --no-build -c Release \
+                                --logger "trx;LogFileName=test_results.trx" \
+                                --collect:"XPlat Code Coverage" \
+                                --results-directory ./TestResults \
+                                -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura
+                            '''
+                        }
+                    }
+                    post {
+                        always {
+                            mstest testResultsFile: '**/test_results.trx', keepLongStdio: true
+
+                            recordCoverage(
+                                tools: [[parser: 'COBERTURA', pattern: '**/coverage.cobertura.xml']],
+                                id: 'cobertura',
+                                name: 'Code Coverage',
+                                sourceCodeRetention: 'LAST_BUILD'
+                            )
+                        }
+                    }
+                }
+
+                stage('Code Style Check') {
+                    steps {
+                        echo '=== Checking Code Formatting ==='
+                        sh 'dotnet format --verify-no-changes'
+                    }
                 }
             }
         }
@@ -35,7 +64,6 @@ pipeline {
         stage('Deploy (Publish)') {
             steps {
                 echo '=== Stage 4: Deploy ==='
-                writeFile file: 'Dockerfile', text: params.dockerfile
                 sh """ 
                     docker build -t my-web-api .
                     docker stop my-web-api || true
@@ -50,7 +78,19 @@ pipeline {
         stage('Check application') {
             steps {
                 echo '=== Stage 5: Check ==='
-                sh """curl http://localhost:${port}"""
+                sh """
+                    for i in \$(seq 1 30); do
+                    if curl -fsS "http://localhost:${port}" >/dev/null; then
+                        echo "App is up"
+                        curl -fsS "http://localhost:${port}"
+                        exit 0
+                    fi
+                    echo "Waiting... (\$i)"
+                    sleep 2
+                    done
+                    echo "App did not become ready in time"
+                    exit 1
+                """
             }
         }
         
