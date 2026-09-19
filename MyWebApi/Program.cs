@@ -8,7 +8,8 @@ app.MapGet("/api/report", () => new[] {
     new { User = "petia", Period = 1, Amount = 100 },
     new { User = "petia", Period = 3, Amount = 120 },
     new { User = "petia", Period = 3, Amount = 50 },
-    new { User = "olga", Period = 3, Amount = 250 }
+    new { User = "olga", Period = 3, Amount = 250 },
+    new { User = "olga", Period = 3, Amount = 300 }
 });
 
 app.MapGet("/", () => "Hello World!");
