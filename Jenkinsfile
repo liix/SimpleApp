@@ -60,10 +60,10 @@ pipeline {
             steps {
                 echo '=== Stage 5: Check ==='
                 sh """
-                    for i in \$(seq 1 30); do
-                    if curl -fsS "http://localhost:${params.PORT}" >/dev/null; then
+                    for i in \$(seq 1 60); do
+                    if curl -fsS "http://127.0.0.1:${params.PORT}" >/dev/null; then
                         echo "App is up"
-                        curl -fsS "http://localhost:${params.PORT}"
+                        curl -fsS "http://127.0.0.1:${params.PORT}"
                         exit 0
                     fi
                     echo "Waiting... (\$i)"
