@@ -23,35 +23,37 @@ pipeline {
         }
 
         stage ('Quality and Testing'){
-            stage('Tests') {
-                steps {
-                    echo '=== Stage 3: Tests ==='
-                    sh '''
-                        dotnet test --no-build -c Release \
-                        --logger "trx;LogFileName=test_results.trx" \
-                        --collect:"XPlat Code Coverage" \
-                        --results-directory ./TestResults \
-                        -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura
-                    '''
-                }
-                post {
-                    always {
-                        mstest testResultsFile: '**/test_results.trx', keepLongStdio: true
+            parallel {
+                stage('Tests') {
+                    steps {
+                        echo '=== Stage 3: Tests ==='
+                        sh '''
+                            dotnet test --no-build -c Release \
+                            --logger "trx;LogFileName=test_results.trx" \
+                            --collect:"XPlat Code Coverage" \
+                            --results-directory ./TestResults \
+                            -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura
+                        '''
+                    }
+                    post {
+                        always {
+                            mstest testResultsFile: '**/test_results.trx', keepLongStdio: true
 
-                        recordCoverage(
-                            tools: [[parser: 'COBERTURA', pattern: '**/coverage.cobertura.xml']],
-                            id: 'cobertura',
-                            name: 'Code Coverage',
-                            sourceCodeRetention: 'LAST_BUILD'
-                        )
+                            recordCoverage(
+                                tools: [[parser: 'COBERTURA', pattern: '**/coverage.cobertura.xml']],
+                                id: 'cobertura',
+                                name: 'Code Coverage',
+                                sourceCodeRetention: 'LAST_BUILD'
+                            )
+                        }
                     }
                 }
-            }
 
-            stage('Code Style Check') {
-                steps {
-                    echo '=== Checking Code Formatting ==='
-                    sh 'dotnet format --verify-no-changes'
+                stage('Code Style Check') {
+                    steps {
+                        echo '=== Checking Code Formatting ==='
+                        sh 'dotnet format --verify-no-changes'
+                    }
                 }
             }
         }
