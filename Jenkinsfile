@@ -23,21 +23,35 @@ pipeline {
         }
 
         stage ('Quality and Testing'){
-            parallel {
-                stage('Tests') {
-                    steps {
-                        echo '=== Stage 3: Tests ==='
-                        catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
-                            sh '''dotnet test --no-build -c Release'''
-                        }
+            stage('Tests') {
+                steps {
+                    echo '=== Stage 3: Tests ==='
+                    sh '''
+                        dotnet test --no-build -c Release \
+                        --logger "trx;LogFileName=test_results.trx" \
+                        --collect:"XPlat Code Coverage" \
+                        --results-directory ./TestResults \
+                        -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura
+                    '''
+                }
+                post {
+                    always {
+                        mstest testResultsFile: '**/test_results.trx', keepLongStdio: true
+
+                        recordCoverage(
+                            tools: [[parser: 'COBERTURA', pattern: '**/coverage.cobertura.xml']],
+                            id: 'cobertura',
+                            name: 'Code Coverage',
+                            sourceCodeRetention: 'LAST_BUILD'
+                        )
                     }
                 }
+            }
 
-                stage('Code Style Check') {
-                    steps {
-                        echo '=== Checking Code Formatting ==='
-                        sh 'dotnet format --verify-no-changes'
-                    }
+            stage('Code Style Check') {
+                steps {
+                    echo '=== Checking Code Formatting ==='
+                    sh 'dotnet format --verify-no-changes'
                 }
             }
         }
@@ -60,7 +74,7 @@ pipeline {
             steps {
                 echo '=== Stage 5: Check ==='
                 sh """
-                    for i in \$(seq 1 60); do
+                    for i in \$(seq 1 30); do
                     if curl -fsS "http://127.0.0.1:${params.PORT}" >/dev/null; then
                         echo "App is up"
                         curl -fsS "http://127.0.0.1:${params.PORT}"
