@@ -28,10 +28,7 @@ pipeline {
                     steps {
                         echo '=== Stage 3: Tests ==='
                         catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
-                            sh '''
-                                dotnet test --no-build -c Release \                                
-                                --results-directory ./TestResults \
-                            '''
+                            sh '''dotnet test --no-build -c Release'''
                         }
                     }
                 }
