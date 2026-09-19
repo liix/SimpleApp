@@ -1,12 +1,9 @@
 pipeline {
-    agent {
-        label 'Linux'
-    }
+    agent any
+    triggers { pollSCM('H/5 * * * *') }
 
     parameters {
-        string(name: 'REPORT_USER', defaultValue: 'vasia')
-        string(name: 'REPORT_PERIOD', defaultValue: '1')
-        choice(name: 'REPORT_FORMAT', choices: ['txt', 'md'])
+        string(name: 'PORT', defaultValue: '8081')
     }
     
     stages {
@@ -32,24 +29,9 @@ pipeline {
                         echo '=== Stage 3: Tests ==='
                         catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
                             sh '''
-                                dotnet test --no-build -c Release \
-                                --logger "trx;LogFileName=test_results.trx" \
-                                --collect:"XPlat Code Coverage" \
+                                dotnet test --no-build -c Release \                                
                                 --results-directory ./TestResults \
-                                -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura
                             '''
-                        }
-                    }
-                    post {
-                        always {
-                            mstest testResultsFile: '**/test_results.trx', keepLongStdio: true
-
-                            recordCoverage(
-                                tools: [[parser: 'COBERTURA', pattern: '**/coverage.cobertura.xml']],
-                                id: 'cobertura',
-                                name: 'Code Coverage',
-                                sourceCodeRetention: 'LAST_BUILD'
-                            )
                         }
                     }
                 }
@@ -70,7 +52,7 @@ pipeline {
                     docker build -t my-web-api .
                     docker stop my-web-api || true
                     docker rm my-web-api || true
-                    docker run -d --name my-web-api -p ${port}:8080 my-web-api
+                    docker run -d --name my-web-api -p ${params.PORT}:8080 my-web-api
                 """
                 
                 echo 'The App is ready'
@@ -82,9 +64,9 @@ pipeline {
                 echo '=== Stage 5: Check ==='
                 sh """
                     for i in \$(seq 1 30); do
-                    if curl -fsS "http://localhost:${port}" >/dev/null; then
+                    if curl -fsS "http://localhost:${params.PORT}" >/dev/null; then
                         echo "App is up"
-                        curl -fsS "http://localhost:${port}"
+                        curl -fsS "http://localhost:${params.PORT}"
                         exit 0
                     fi
                     echo "Waiting... (\$i)"
@@ -95,20 +77,11 @@ pipeline {
                 """
             }
         }
-        
-        stage('Execute DSL') {
-            steps {
-                echo '=== Stage 6: Generate report ==='
-                writeFile file: 'generate_report.cs', text: params.generate_report
-                sh "dotnet run generate_report.cs -- ${params.REPORT_USER} ${params.REPORT_PERIOD} ${params.REPORT_FORMAT} ${port}"
-            }
-        }
     }
 
     post {
         always {
             echo 'Cleaning...'
-            cleanWs()
         }
         success {
             echo 'Pipeline finished successfully'
